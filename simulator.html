@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YTSim: Tycoon Edition (Fixed)</title>
+    <style>
+        :root {
+            --bg-dark: #0a0a0c; --panel-bg: #16161a;
+            --accent-blue: #3ea6ff; --accent-green: #2ba640;
+            --accent-red: #ff4e4e; --accent-gold: #ffd700;
+            --text-main: #e4e4e6; --text-muted: #8a8a93;
+            --border-color: #2c2c35;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; user-select: none; }
+        body { background-color: var(--bg-dark); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+        /* --- ГОЛОВНЕ МЕНЮ --- */
+        #main-menu { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #0a0a0c 0%, #1a1a24 100%); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10000; }
+        .menu-card { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 40px; border-radius: 16px; width: 380px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .menu-card h1 { font-size: 26px; margin-bottom: 5px; }
+        .menu-card p { color: var(--text-muted); font-size: 13px; margin-bottom: 25px; }
+        .menu-input { width: 100%; padding: 12px; margin-bottom: 15px; background: var(--bg-dark); border: 1px solid var(--border-color); color: white; border-radius: 8px; outline: none; }
+        .menu-btn { width: 100%; padding: 14px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; margin-bottom: 10px; transition: 0.2s; }
+        .btn-new { background: var(--accent-blue); color: black; }
+        .btn-load { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
+
+        /* --- ІНТЕРФЕЙС ГРИ --- */
+        #app-container { display: flex; flex: 1; height: calc(100vh - 90px); width: 100%; overflow: hidden; }
+        
+        /* Бокове меню */
+        .sidebar { min-width: 250px; width: 250px; background-color: var(--panel-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 20px 10px; overflow-y: auto; }
+        .channel-info { text-align: center; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); margin-bottom: 15px; }
+        .channel-info h2 { font-size: 18px; word-break: break-all; }
+        .algorithm-trust { font-size: 11px; margin-top: 5px; font-weight: bold; }
+        .game-time { font-size: 10px; color: var(--text-muted); margin-top: 5px; }
+        
+        .awards-container { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; min-height: 30px; }
+        .yt-button { font-size: 20px; display: none; }
+        .yt-button.active { display: block; filter: drop-shadow(0 0 5px rgba(255,255,255,0.4)); }
+
+        .nav-btn { background: none; border: none; color: var(--text-muted); padding: 12px 15px; text-align: left; font-size: 15px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; transition: 0.2s; }
+        .nav-btn:hover { background-color: rgba(255,255,255,0.05); }
+        .nav-btn.active { background-color: var(--border-color); color: var(--text-main); border-left: 3px solid var(--accent-blue); }
+
+        /* Головний контент */
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 25px; }
+        
+        /* Адаптивна сітка статів */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-card { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 15px; border-radius: 12px; position: relative; }
+        .stat-card h3 { font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
+        .stat-card .val { font-size: 22px; font-weight: bold; }
+        .stat-card .sub { font-size: 11px; color: var(--accent-green); margin-top: 5px; }
+        .btn-ypp { position: absolute; top: 15px; right: 15px; background: var(--accent-green); color: white; border: none; padding: 5px 10px; font-size: 10px; font-weight: bold; border-radius: 4px; cursor: pointer; display: none; }
+
+        .tab { display: none; }
+        .tab.active { display: block; }
+        .panel { background: var(--panel-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+
+        /* СТУДІЯ - Адаптивна сітка */
+        .studio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; align-items: start; }
+        .form-label { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; display: block; }
+        select { width: 100%; padding: 12px; background: var(--bg-dark); border: 1px solid var(--border-color); color: white; border-radius: 8px; margin-bottom: 15px; outline: none; }
+        .btn-action { width: 100%; padding: 15px; background: var(--accent-blue); border: none; border-radius: 8px; color: black; font-weight: bold; cursor: pointer; }
+        .btn-action:disabled { background: #333; color: #666; cursor: not-allowed; }
+        .progress-bg { width: 100%; height: 6px; background: #222; border-radius: 3px; margin-top: 15px; overflow: hidden; display: none; }
+        .progress-fill { height: 100%; width: 0%; background: var(--accent-blue); transition: width 0.1s; }
+
+        .video-list { max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 5px; }
+        .video-item { background: var(--bg-dark); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .video-title { font-size: 14px; font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .video-meta { font-size: 11px; color: var(--text-muted); }
+        .v-views { font-size: 15px; font-weight: bold; color: var(--accent-blue); text-align: right; }
+        .badge { font-size: 9px; padding: 2px 5px; border-radius: 4px; text-transform: uppercase; font-weight: bold; }
+        .badge-viral { background: var(--accent-red); color: white; }
+        .badge-green { background: var(--accent-green); color: white; }
+
+        /* АНАЛІТИКА */
+        .chart-controls { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        .chart-btn { background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-muted); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .chart-btn.active { background: var(--border-color); color: white; border-color: var(--accent-blue); }
+        
+        .chart-container { width: 100%; height: 250px; background-color: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; display: flex; align-items: flex-end; gap: 4px; position: relative; overflow: hidden; }
+        .chart-bar { flex: 1; background: linear-gradient(to top, rgba(62,166,255,0.2), var(--accent-blue)); border-top-left-radius: 3px; border-top-right-radius: 3px; min-height: 2px; transition: height 0.3s; position: relative; }
+        .chart-bar:hover::after { content: attr(data-val); position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #fff; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; z-index: 100; font-weight: bold; }
+        
+        .deep-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 20px; }
+        .deep-stat { background: var(--bg-dark); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); text-align: center; }
+        .deep-stat-title { font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; }
+        .deep-stat-val { font-size: 20px; font-weight: bold; color: var(--accent-gold); }
+
+        /* БІЗНЕС - Адаптивна сітка */
+        .upgrade-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
+        .upgrade-card { background: var(--bg-dark); border: 1px solid var(--border-color); padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .upgrade-info h4 { font-size: 14px; margin-bottom: 4px; }
+        .upgrade-info p { font-size: 11px; color: var(--text-muted); }
+        .btn-buy { background: transparent; border: 1px solid var(--accent-gold); color: var(--accent-gold); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; white-space: nowrap; }
+        .btn-buy:hover:not(:disabled) { background: var(--accent-gold); color: black; }
+        .btn-buy:disabled { border-color: #444; color: #444; cursor: not-allowed; }
+
+        /* ДОСЯГНЕННЯ - Адаптивна сітка */
+        .achievements-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; }
+        .ach-card { background: var(--bg-dark); border: 1px solid var(--border-color); padding: 15px; border-radius: 8px; text-align: center; opacity: 0.5; filter: grayscale(1); transition: 0.3s; }
+        .ach-card.unlocked { opacity: 1; filter: grayscale(0); border-color: var(--accent-gold); background: linear-gradient(180deg, rgba(255,215,0,0.1) 0%, var(--bg-dark) 100%); }
+        .ach-icon { font-size: 24px; margin-bottom: 10px; }
+        .ach-title { font-size: 12px; font-weight: bold; margin-bottom: 5px; color: var(--text-main); }
+        .ach-desc { font-size: 10px; color: var(--text-muted); }
+
+        /* БАНЕР */
+        #bottom-banner-container { width: 100%; height: 90px; background-color: #050505; border-top: 1px solid var(--border-color); display: flex; justify-content: center; align-items: center; flex-direction: column; z-index: 999; }
+        .banner-placeholder { width: 100%; max-width: 728px; height: 60px; background-color: #111; border: 1px dashed #555; display: flex; justify-content: center; align-items: center; color: #666; font-size: 12px; letter-spacing: 1px; overflow: hidden; }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+    <div id="main-menu">
+        <div class="menu-card">
+            <h1>YTSim: Tycoon Edition</h1>
+            <input type="text" id="input-channel" class="menu-input" placeholder="Channel Name" value="ChronosCraft">
+            <button class="menu-btn btn-new" onclick="startNewGame()">Start New Career</button>
+            <button class="menu-btn btn-load" onclick="loadGame()">Load Save</button>
+            <div id="save-status" style="margin-top: 15px; font-size: 12px; color: var(--accent-red);"></div>
+        </div>
+    </div>
+
+    <div id="app-container" style="display: none;">
+        <div class="sidebar">
+            <div class="channel-info">
+                <h2 id="ui-channel-name">@Channel</h2>
+                <div class="algorithm-trust" id="ui-trust">Algorithm Trust: 0%</div>
+                <div class="game-time" id="ui-days">Day: 1</div>
+            </div>
+            
+            <div class="awards-container">
+                <span class="yt-button" id="award-silver" title="100K Subs">🥈</span>
+                <span class="yt-button" id="award-gold" title="1M Subs">🥇</span>
+                <span class="yt-button" id="award-diamond" title="10M Subs">💎</span>
+            </div>
+
+            <button class="nav-btn active" onclick="switchTab('studio')" id="btn-studio">🎬 Studio</button>
+            <button class="nav-btn" onclick="switchTab('analytics')" id="btn-analytics">📈 Analytics</button>
+            <button class="nav-btn" onclick="switchTab('business')" id="btn-business">💼 Business</button>
+            <button class="nav-btn" onclick="switchTab('achievements')" id="btn-achievements">🏆 Achievements</button>
+            <button class="nav-btn" onclick="switchTab('settings')" id="btn-settings">⚙️ Settings</button>
+            
+            <button class="nav-btn" id="btn-save" onclick="saveGame()" style="margin-top: auto; border: 1px solid var(--border-color);">💾 Save Game</button>
+        </div>
+
+        <div class="main-content">
+            <div class="stats-grid">
+                <div class="stat-card"><h3>Subscribers</h3><div class="val" id="stat-subs">0</div><div class="sub" id="tick-subs">+0/s</div></div>
+                <div class="stat-card"><h3>Total Views</h3><div class="val" id="stat-views">0</div><div class="sub" id="tick-views">+0/s</div></div>
+                <div class="stat-card">
+                    <h3>Watch Hours</h3><div class="val" id="stat-hours">0</div>
+                    <div class="sub" id="ui-monetization-req" style="color:var(--accent-red)">Need 4,000h & 1K Subs</div>
+                    <button class="btn-ypp" id="btn-apply-ypp" onclick="applyYPP()">Enable YPP</button>
+                </div>
+                <div class="stat-card"><h3>Balance</h3><div class="val" id="stat-money">$0.00</div><div class="sub">Ad Rev & Sponsors</div></div>
+            </div>
+
+            <div id="tab-studio" class="tab active">
+                <div class="studio-grid">
+                    <div class="panel">
+                        <span class="form-label">Video Format:</span>
+                        <select id="video-format">
+                            <option value="shorts">📱 Shorts (Low CPM, Fast growth)</option>
+                            <option value="gameplay">🎮 Let's Play (Avg CPM, Stable)</option>
+                            <option value="evolution">🔬 Evolution Doc (High CPM, High CTR)</option>
+                            <option value="podcast">🎙️ Deep Podcast (Max CPM, Slow Render)</option>
+                        </select>
+                        <button class="btn-action" id="btn-render" onclick="renderVideo()">Produce Video</button>
+                        <div class="progress-bg" id="render-bg"><div class="progress-fill" id="render-fill"></div></div>
+                    </div>
+                    <div class="panel">
+                        <h3 style="margin-bottom: 15px; display:flex; justify-content:space-between; flex-wrap: wrap;">
+                            <span>Uploads</span><span id="ui-video-count" style="font-size:12px; color:var(--text-muted);">0 vids</span>
+                        </h3>
+                        <div class="video-list" id="video-list-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-analytics" class="tab">
+                <div class="panel">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; margin-bottom: 15px;">
+                        <h3 style="margin-bottom: 10px;">Views Over Time</h3>
+                        <div class="chart-controls">
+                            <button class="chart-btn active" id="cbtn-30" onclick="renderChart(30)">30 Days</button>
+                            <button class="chart-btn" id="cbtn-365" onclick="renderChart(365)">365 Days</button>
+                            <button class="chart-btn" id="cbtn-all" onclick="renderChart('all')">All Time</button>
+                        </div>
+                    </div>
+                    <div class="chart-container" id="chart-area"></div>
+                    
+                    <div class="deep-stats-grid">
+                        <div class="deep-stat">
+                            <div class="deep-stat-title">Average CTR</div>
+                            <div class="deep-stat-val" id="stat-ctr">4.0%</div>
+                        </div>
+                        <div class="deep-stat">
+                            <div class="deep-stat-title">Avg. Retention</div>
+                            <div class="deep-stat-val" id="stat-ret">25.0%</div>
+                        </div>
+                        <div class="deep-stat">
+                            <div class="deep-stat-title">Active Videos</div>
+                            <div class="deep-stat-val" id="stat-active">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-business" class="tab">
+                <div class="panel" style="margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px; color: var(--accent-gold);">Sponsors</h3>
+                    <div class="upgrade-grid" id="sponsors-container"></div>
+                </div>
+                <div class="panel">
+                    <h3 style="margin-bottom: 15px;">Upgrades & Team</h3>
+                    <div class="upgrade-grid" id="upgrades-container"></div>
+                </div>
+            </div>
+
+            <div id="tab-achievements" class="tab">
+                <div class="panel">
+                    <h3 style="margin-bottom: 15px;">Milestones <span id="ach-count" style="font-size:14px; color:var(--text-muted); float:right;">0/20</span></h3>
+                    <div class="achievements-grid" id="achievements-container"></div>
+                </div>
+            </div>
+
+            <div id="tab-settings" class="tab">
+                <div class="panel">
+                    <h3 style="margin-bottom: 15px;">Settings</h3>
+                    <button class="btn-action" style="background: var(--accent-red); color: white; max-width: 300px;" onclick="hardReset()">🛑 Hard Reset Game</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="bottom-banner-container">
+        <div style="font-size:10px; color:#555; margin-bottom:3px; text-transform:uppercase;">Advertisement</div>
+        <div class="banner-placeholder">[ ADSTERRA / MONEYTAG BANNER PLACEHOLDER 728x90 ]</div>
+    </div>
+
+    <script>
+        const formatConfig = {
+            shorts: { name: "Shorts", renderTime: 20, baseViews: 150, hoursMult: 0.005, cpm: 0.05 },
+            gameplay: { name: "Gameplay", renderTime: 60, baseViews: 50, hoursMult: 0.15, cpm: 1.50 },
+            evolution: { name: "Evolution", renderTime: 120, baseViews: 300, hoursMult: 0.4, cpm: 4.50 },
+            podcast: { name: "Podcast", renderTime: 250, baseViews: 100, hoursMult: 1.5, cpm: 8.00 }
+        };
+
+        const upgradesList = [
+            { id: "pc_sodium", name: "Sodium / Fabric", desc: "Render speed +15%", cost: 250 },
+            { id: "ai_kling", name: "Kling & Luma AI", desc: "Viral & Evergreen chance up", cost: 2500 },
+            { id: "team_thumb", name: "Thumb Designer", desc: "+3.5% CTR (More views)", cost: 3000 },
+            { id: "team_editor", name: "Pro Editor", desc: "+15% Retention (More hours)", cost: 8000 }
+        ];
+
+        const sponsorsList = [
+            { id: "sp_1", name: "FunTime Economy Promo", req: 500, payout: 150 },
+            { id: "sp_2", name: "Liminal Horror Game", req: 2500, payout: 800 },
+            { id: "sp_3", name: "Tech VPN", req: 10000, payout: 4500 }
+        ];
+
+        const achievementsList = [
+            { id: "a1", icon: "🎥", title: "First Blood", desc: "Upload 1 video" },
+            { id: "a2", icon: "🏖️", title: "Sandbox Escape", desc: "Upload 20 videos" },
+            { id: "a3", icon: "💯", title: "Dedication", desc: "Upload 50 videos" },
+            { id: "a4", icon: "🔥", title: "Grindset", desc: "Upload 100 videos" },
+            { id: "a5", icon: "👀", title: "Double Digits", desc: "Get 100 total views" },
+            { id: "a6", icon: "📈", title: "Micro-Influencer", desc: "Get 10,000 total views" },
+            { id: "a7", icon: "🚀", title: "Viral Hit", desc: "Upload a VIRAL video" },
+            { id: "a8", icon: "🌲", title: "Evergreen", desc: "Upload an Evergreen video" },
+            { id: "a9", icon: "🎉", title: "Hundred Club", desc: "Reach 100 subscribers" },
+            { id: "a10", icon: "⏱️", title: "Chronos Milestone", desc: "Reach 2,400 subscribers" },
+            { id: "a11", icon: "🥈", title: "Silver Button", desc: "Reach 100,000 subscribers" },
+            { id: "a12", icon: "🥇", title: "Gold Button", desc: "Reach 1,000,000 subscribers" },
+            { id: "a13", icon: "💵", title: "First Paycheck", desc: "Enable Monetization (YPP)" },
+            { id: "a14", icon: "💼", title: "FunTime Investor", desc: "Complete FunTime Sponsor" },
+            { id: "a15", icon: "💰", title: "Capitalist", desc: "Earn $1,000 total" },
+            { id: "a16", icon: "⚡", title: "Optimized", desc: "Buy Sodium upgrade" },
+            { id: "a17", icon: "🤖", title: "AI Overlord", desc: "Buy Kling & Luma AI" },
+            { id: "a18", icon: "🤝", title: "The Boss", desc: "Hire Editor and Designer" },
+            { id: "a19", icon: "🎯", title: "Click Magnet", desc: "Reach >7% Average CTR" },
+            { id: "a20", icon: "🧠", title: "Retention Master", desc: "Reach >35% Avg Retention" }
+        ];
+
+        let state = {
+            channel: "", subs: 0, views: 0, hours: 0, money: 0,
+            isMonetized: false, daysPlayed: 1, dailyHistory: [],
+            videos: [], upgrades: [], sponsors: [], awards: [], ach: []
+        };
+
+        let currentChartPeriod = 30;
+
+        function startNewGame() {
+            let name = document.getElementById('input-channel').value.trim();
+            if(!name) return;
+            state = { channel: name, subs: 0, views: 0, hours: 0, money: 0, isMonetized: false, daysPlayed: 1, dailyHistory: [], videos: [], upgrades: [], sponsors: [], awards: [], ach: [] };
+            startGameUI();
+        }
+
+        function loadGame() {
+            let saved = localStorage.getItem('ytsim_tycoon_save');
+            if(saved) {
+                state = JSON.parse(saved);
+                if(!state.dailyHistory) state.dailyHistory = [];
+                if(!state.ach) state.ach = [];
+                startGameUI(); rebuildVideoList();
+            }
+        }
+
+        // --- ВІЗУАЛЬНЕ ЗБЕРЕЖЕННЯ ---
+        function saveGame() { 
+            if(!state.channel) return; // Не зберігати порожню гру
+            localStorage.setItem('ytsim_tycoon_save', JSON.stringify(state)); 
+            
+            let btn = document.getElementById('btn-save');
+            if(btn) {
+                let oldHtml = btn.innerHTML;
+                btn.innerHTML = "✅ Saved!";
+                btn.style.borderColor = "var(--accent-green)";
+                btn.style.color = "var(--accent-green)";
+                
+                setTimeout(() => {
+                    btn.innerHTML = oldHtml;
+                    btn.style.borderColor = "var(--border-color)";
+                    btn.style.color = "var(--text-muted)";
+                }, 1500);
+            }
+        }
+
+        function hardReset() { if(confirm("Delete all progress?")) { localStorage.removeItem('ytsim_tycoon_save'); location.reload(); } }
+
+        function startGameUI() {
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('app-container').style.display = 'flex';
+            document.getElementById('ui-channel-name').innerText = "@" + state.channel;
+            initAchievements(); renderBusinessTab(); renderChart(30); checkPlayButtons();
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            document.getElementById('btn-' + tab).classList.add('active');
+            
+            if(tab === 'analytics') { calcDeepStats(); renderChart(currentChartPeriod); }
+            if(tab === 'business') { renderBusinessTab(); } // Баг виправлено тут!
+        }
+
+        // --- ВІДЕО ---
+        function renderVideo() {
+            let btn = document.getElementById('btn-render'); let fill = document.getElementById('render-fill');
+            let key = document.getElementById('video-format').value; let cfg = formatConfig[key];
+            btn.disabled = true; document.getElementById('render-bg').style.display = 'block'; fill.style.width = '0%';
+            
+            let tMult = state.upgrades.includes("pc_sodium") ? 0.85 : 1;
+            let p = 0; let timer = setInterval(() => {
+                p += 5; fill.style.width = p + '%';
+                if(p >= 100) { clearInterval(timer); btn.disabled = false; document.getElementById('render-bg').style.display = 'none'; publishVideo(key, cfg); }
+            }, cfg.renderTime * tMult);
+        }
+
+        function publishVideo(key, cfg) {
+            let num = state.videos.length + 1;
+            let tF = Math.min(1, num / 20); 
+            let baseV = num <= 5 ? Math.random() * 8 + 2 : cfg.baseViews * tF + (state.subs * 0.05);
+            if(state.upgrades.includes("team_thumb")) baseV *= 1.4;
+
+            let vChance = state.upgrades.includes("ai_kling") ? 0.08 : 0.02;
+            let eChance = state.upgrades.includes("ai_kling") ? 0.35 : 0.15;
+            let isViral = Math.random() < vChance && tF > 0.5; if(isViral) baseV *= (5 + Math.random() * 15);
+
+            let newVid = { id: Date.now(), title: `${cfg.name} #${num}`, format: key, views: 0, revenue: 0, cpm: cfg.cpm, hoursMult: state.upgrades.includes("team_editor") ? cfg.hoursMult*2 : cfg.hoursMult, velocity: baseV, decay: 0.92, isViral: isViral, isEvergreen: Math.random() < eChance, isActive: true };
+            
+            state.videos.unshift(newVid);
+            document.getElementById('ui-trust').innerText = `Algorithm Trust: ${Math.min(100, Math.floor(tF*100))}%`;
+            document.getElementById('ui-video-count').innerText = `${num} vids`;
+            injectVideoHTML(newVid);
+            
+            if(isViral) unlockAch("a7");
+            if(newVid.isEvergreen) unlockAch("a8");
+        }
+
+        function injectVideoHTML(v) {
+            let h = `<div class="video-item" id="row-${v.id}"><div><div class="video-title">${v.isViral?'<span class="badge badge-viral">VIRAL</span>':''}${v.isEvergreen?'<span class="badge badge-green">Evergreen</span>':''} ${v.title}</div><div class="video-meta">${v.format.toUpperCase()} | CPM: $${v.cpm.toFixed(2)}</div></div><div class="v-views" id="v-${v.id}">0 views</div></div>`;
+            document.getElementById('video-list-container').insertAdjacentHTML('afterbegin', h);
+        }
+        function rebuildVideoList() { document.getElementById('video-list-container').innerHTML = ''; state.videos.slice(0, 50).forEach(v => injectVideoHTML(v)); }
+
+        // --- БІЗНЕС ---
+        function renderBusinessTab() {
+            let upBox = document.getElementById('upgrades-container'); upBox.innerHTML = '';
+            upgradesList.forEach(u => {
+                let bt = state.upgrades.includes(u.id); let dis = bt || state.money < u.cost ? 'disabled' : '';
+                upBox.innerHTML += `<div class="upgrade-card"><div><h4>${u.name}</h4><p>${u.desc}</p></div><button class="btn-buy" ${dis} onclick="buyUpg('${u.id}', ${u.cost})">${bt?'Owned':'$'+u.cost}</button></div>`;
+            });
+            let spBox = document.getElementById('sponsors-container'); spBox.innerHTML = '';
+            sponsorsList.forEach(s => {
+                let dn = state.sponsors.includes(s.id); let dis = dn || state.subs < s.req ? 'disabled' : '';
+                spBox.innerHTML += `<div class="upgrade-card" style="border-left:2px solid var(--accent-gold)"><div><h4>${s.name}</h4><p>Req: ${s.req.toLocaleString()} subs</p></div><button class="btn-buy" ${dis} onclick="claimSp('${s.id}', ${s.payout})">${dn?'Done':'+$'+s.payout}</button></div>`;
+            });
+        }
+        function buyUpg(id, cost) { if(state.money >= cost) { state.money -= cost; state.upgrades.push(id); renderBusinessTab(); calcDeepStats(); } }
+        function claimSp(id, pay) { if(!state.sponsors.includes(id)) { state.money += pay; state.sponsors.push(id); renderBusinessTab(); if(id==="sp_1") unlockAch("a14"); } }
+        function applyYPP() { if(state.subs>=1000 && state.hours>=4000) { state.isMonetized = true; unlockAch("a13"); updateTopStats(); } }
+
+        // --- АНАЛІТИКА ---
+        function calcDeepStats() {
+            let ctr = 4.0; if(state.upgrades.includes("team_thumb")) ctr += 3.5; if(state.upgrades.includes("ai_kling")) ctr += 1.5;
+            let ret = 25.0; if(state.upgrades.includes("team_editor")) ret += 15.0;
+            let active = state.videos.filter(v => v.isActive).length;
+            
+            document.getElementById('stat-ctr').innerText = ctr.toFixed(1) + "%";
+            document.getElementById('stat-ret').innerText = ret.toFixed(1) + "%";
+            document.getElementById('stat-active').innerText = active;
+            
+            if(ctr > 7.0) unlockAch("a19");
+            if(ret > 35.0) unlockAch("a20");
+        }
+
+        function renderChart(days) {
+            currentChartPeriod = days;
+            document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('cbtn-' + days).classList.add('active');
+
+            let data = [...state.dailyHistory];
+            if(days !== 'all') data = data.slice(-days);
+            if(data.length === 0) data = [0];
+
+            const MAX_BARS = 40; let grouped = [];
+            if(data.length > MAX_BARS) {
+                let chunkSize = Math.ceil(data.length / MAX_BARS);
+                for(let i=0; i<data.length; i+=chunkSize) {
+                    let chunk = data.slice(i, i+chunkSize);
+                    let sum = chunk.reduce((a,b)=>a+b,0);
+                    grouped.push(sum);
+                }
+            } else { grouped = data; }
+
+            let maxVal = Math.max(...grouped, 10);
+            let area = document.getElementById('chart-area'); area.innerHTML = '';
+            
+            grouped.forEach(val => {
+                let h = Math.max((val / maxVal) * 100, 2);
+                let bar = document.createElement('div');
+                bar.className = 'chart-bar'; bar.style.height = h + '%';
+                bar.setAttribute('data-val', Math.floor(val).toLocaleString() + ' views');
+                area.appendChild(bar);
+            });
+        }
+
+        // --- ДОСЯГНЕННЯ ---
+        function initAchievements() {
+            let box = document.getElementById('achievements-container'); box.innerHTML = '';
+            achievementsList.forEach(a => {
+                let unl = state.ach.includes(a.id);
+                box.innerHTML += `<div class="ach-card ${unl?'unlocked':''}" id="ach-${a.id}"><div class="ach-icon">${a.icon}</div><div class="ach-title">${a.title}</div><div class="ach-desc">${a.desc}</div></div>`;
+            });
+            document.getElementById('ach-count').innerText = `${state.ach.length}/${achievementsList.length}`;
+        }
+        
+        function unlockAch(id) {
+            if(!state.ach.includes(id)) {
+                state.ach.push(id);
+                let el = document.getElementById(`ach-${id}`); if(el) el.classList.add('unlocked');
+                document.getElementById('ach-count').innerText = `${state.ach.length}/${achievementsList.length}`;
+            }
+        }
+
+        function checkAchievementsLoop() {
+            let v = state.videos.length;
+            if(v >= 1) unlockAch("a1"); if(v >= 20) unlockAch("a2"); if(v >= 50) unlockAch("a3"); if(v >= 100) unlockAch("a4");
+            if(state.views >= 100) unlockAch("a5"); if(state.views >= 10000) unlockAch("a6");
+            if(state.subs >= 100) unlockAch("a9"); if(state.subs >= 2400) unlockAch("a10");
+            if(state.subs >= 100000) unlockAch("a11"); if(state.subs >= 1000000) unlockAch("a12");
+            if(state.money >= 1000) unlockAch("a15");
+            if(state.upgrades.includes("pc_sodium")) unlockAch("a16");
+            if(state.upgrades.includes("ai_kling")) unlockAch("a17");
+            if(state.upgrades.includes("team_thumb") && state.upgrades.includes("team_editor")) unlockAch("a18");
+        }
+
+        function checkPlayButtons() {
+            document.getElementById('award-silver').classList.toggle('active', state.subs >= 100000);
+            document.getElementById('award-gold').classList.toggle('active', state.subs >= 1000000);
+            document.getElementById('award-diamond').classList.toggle('active', state.subs >= 10000000);
+        }
+
+        // --- ЕНДЖІН (ENGINE) ---
+        let dailyViewsAcc = 0; let tickCnt = 0;
+        
+        function updateTopStats() {
+            document.getElementById('stat-subs').innerText = Math.floor(state.subs).toLocaleString();
+            document.getElementById('stat-views').innerText = Math.floor(state.views).toLocaleString();
+            document.getElementById('stat-hours').innerText = Math.floor(state.hours).toLocaleString();
+            document.getElementById('stat-money').innerText = "$" + state.money.toFixed(2);
+            let reqEl = document.getElementById('ui-monetization-req'); let btnYpp = document.getElementById('btn-apply-ypp');
+            if (state.isMonetized) { reqEl.innerText = "YPP Active"; reqEl.style.color = "var(--accent-green)"; btnYpp.style.display = 'none'; }
+            else if(state.subs>=1000 && state.hours>=4000) { reqEl.style.display = 'none'; btnYpp.style.display = 'block'; btnYpp.disabled = false; }
+            else { reqEl.style.display = 'block'; btnYpp.style.display = 'none'; }
+        }
+
+        setInterval(() => {
+            if(document.getElementById('app-container').style.display === 'none') return;
+            let tV = 0, tS = 0, tH = 0, tM = 0;
+
+            for (let i = 0; i < state.videos.length; i++) {
+                let v = state.videos[i]; let addV = 0;
+                if (v.velocity > 0.5) { addV = v.velocity; v.velocity *= v.decay; } 
+                else if (v.isEvergreen) { addV = (state.subs * 0.0005) + 0.5; } 
+                else { v.isActive = false; }
+
+                if (addV > 0) {
+                    v.views += addV; tV += addV; tS += addV * 0.002; tH += addV * v.hoursMult * 0.02;
+                    let vEl = document.getElementById(`v-${v.id}`); if (vEl) vEl.innerText = Math.floor(v.views).toLocaleString() + " views";
+                    if (state.isMonetized) tM += (addV / 1000) * v.cpm;
+                }
+            }
+
+            state.views += tV; state.subs += tS; state.hours += tH; state.money += tM; dailyViewsAcc += tV;
+            document.getElementById('tick-views').innerText = "+" + Math.floor(tV*10).toLocaleString() + "/s";
+            document.getElementById('tick-subs').innerText = "+" + Math.floor(tS*10).toLocaleString() + "/s";
+            updateTopStats();
+
+            tickCnt++;
+            if(tickCnt >= 10) { 
+                tickCnt = 0; state.daysPlayed++;
+                document.getElementById('ui-days').innerText = `Day: ${state.daysPlayed}`;
+                state.dailyHistory.push(dailyViewsAcc); dailyViewsAcc = 0;
+                if(document.getElementById('tab-analytics').classList.contains('active')) renderChart(currentChartPeriod);
+                checkAchievementsLoop(); checkPlayButtons();
+            }
+        }, 100);
+
+        setInterval(() => { if(document.getElementById('app-container').style.display !== 'none') saveGame(); }, 30000);
+    </script>
+</body>
+</html>
